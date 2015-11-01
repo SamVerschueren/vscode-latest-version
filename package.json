@@ -1,0 +1,24 @@
+{
+  "name": "latest-version",
+  "description": "Show warning if dependencies are outdated.",
+  "version": "0.0.1",
+  "publisher": "samverschueren",
+  "engines": {
+    "vscode": "*"
+  },
+  "activationEvents": [
+    "workspaceContains:package.json"
+  ],
+  "main": "./out/extension",
+  "scripts": {
+    "vscode:prepublish": "node ./node_modules/vscode/bin/compile",
+    "compile": "node ./node_modules/vscode/bin/compile -watch -p ./"
+  },
+  "devDependencies": {
+    "vscode": "*"
+  },
+  "dependencies": {
+    "latest-version": "^2.0.0",
+    "semver": "^5.0.3"
+  }
+}
