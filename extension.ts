@@ -1,6 +1,6 @@
 'use strict';
 
-import {workspace, extensions, ReadOnlyMemento} from 'vscode';
+import {workspace, extensions, ReadOnlyMemento, Disposable} from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -12,7 +12,6 @@ export function activate() {
 
 	try {
 		const versionController = new VersionController(config);
-		versionController.checkDependencies();
 	} catch (err) {
 		// show error message
 	}
@@ -20,34 +19,44 @@ export function activate() {
 
 export class VersionController {
 
+	private _disposable: Disposable;
 	private _config: ReadOnlyMemento;
-	private _pkg: any;
 
 	constructor(config: ReadOnlyMemento) {
 		this._config = config;
 
-		this._loadPackageData();
+		let subscriptions: Disposable[] = [];
+
+		workspace.onDidChangeTextDocument(this.checkDependencies, this, subscriptions);
+
+		this._disposable = Disposable.of(...subscriptions);
 	}
 
-	public checkDependencies() {
-		Promise.all(Object.keys(this._pkg.dependencies).map(dependency => {
-			const installedVersion = this._pkg.dependencies[dependency];
+	public checkDependencies(event: any) {
+		if (path.basename(event.document._uri) !== 'package.json') {
+			return;
+		}
 
-			return latestVersion(dependency)
-				.then(latestVersion => {
-					if (!semver.satisfies(latestVersion, installedVersion)) {
-						let obj = {};
-						obj[dependency] = latestVersion;
+		try {
+			const pkg = JSON.parse(event.document._lines.join(event.document._eol));
 
-						return obj;
-					}
-				});
-		})).then(result => {
-			console.log(JSON.stringify(result, undefined, '  '));
-		});
-	}
+			Promise.all(Object.keys(pkg.dependencies).map(dependency => {
+				const installedVersion = pkg.dependencies[dependency];
 
-	private _loadPackageData() {
-		this._pkg = JSON.parse(fs.readFileSync(path.join(workspace.getPath(), 'package.json'), 'utf8'));
+				return latestVersion(dependency)
+					.then(latestVersion => {
+						if (!semver.satisfies(latestVersion, installedVersion)) {
+							let obj = {};
+							obj[dependency] = latestVersion;
+
+							return obj;
+						}
+					});
+			})).then(result => {
+				console.log(JSON.stringify(result, undefined, '  '));
+			});
+		} catch (err) {
+			console.log(err.message);
+		}
 	}
 }
